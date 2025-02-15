@@ -40,12 +40,14 @@ function initCurrentYear() {
 }
 
 function initSplit() {
-  let lineTargets = document.querySelectorAll('[data-split="lines"]');
-  let letterTargets = document.querySelectorAll('[data-split="letters"]');
+  // Initialize SplitType after the entire window has loaded
+  const lineTargets = document.querySelectorAll('[data-split="lines"]');
+  const letterTargets = document.querySelectorAll('[data-split="letters"]');
   let splitTextLines = null;
   let splitTextLetters = [];
 
   function splitText() {
+    // Revert previous SplitType instances if they exist
     if (splitTextLines) {
       splitTextLines.revert();
     }
@@ -54,56 +56,50 @@ function initSplit() {
     });
     splitTextLetters = [];
 
-    // Lines
+    // Split Lines
     splitTextLines = new SplitType(lineTargets, {
       types: "lines",
       lineClass: "single-line",
     });
 
-    // Group lines by their parent element
-    const lineGroups = {};
+    // Wrap each line in a .single-line-wrap div and handle background-clip
     splitTextLines.lines.forEach((line) => {
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("single-line-wrap");
+
       const parent = line.closest('[data-split="lines"]');
-      if (!lineGroups[parent.dataset.splitId]) {
-        // Create unique ID for each parent if it doesn't exist
-        parent.dataset.splitId = Math.random().toString(36).substr(2, 9);
-        lineGroups[parent.dataset.splitId] = [];
+      const computedStyles = window.getComputedStyle(parent);
+
+      // Handle background-clip: text if applied
+      if (
+        computedStyles.webkitBackgroundClip === "text" ||
+        computedStyles.backgroundClip === "text"
+      ) {
+        const bg = computedStyles.background;
+        line.style.background = bg;
+        line.style.backgroundClip = "text";
+        line.style.webkitBackgroundClip = "text";
+        line.style.color = "transparent"; // Ensure text is clipped to background
       }
-      lineGroups[parent.dataset.splitId].push(line);
+
+      line.parentNode.insertBefore(wrapper, line);
+      wrapper.appendChild(line);
     });
 
-    // Process each group separately
-    Object.values(lineGroups).forEach((group) => {
-      group.forEach((line, index) => {
-        let wrapper = document.createElement("div");
-        wrapper.classList.add("single-line-wrap");
-        line.parentNode.insertBefore(wrapper, line);
-        wrapper.appendChild(line);
-
-        // Add delay if the parent has data-lines-delay attribute
-        if (line.closest("[data-lines-delay]")) {
-          let delay = (index + 3) * 0.05 + "s";
-          line.style.setProperty("transition-delay", delay);
-        }
-      });
-    });
-
-    // Letters
     splitTextLetters = Array.from(letterTargets).map((target) => {
-      // if (target.hasAttribute("split-ran")) return;
       return new SplitType(target, {
         types: "words,chars",
         charClass: "single-letter",
+        wordClass: "single-word",
         tagName: "span",
       });
     });
 
     splitTextLetters.forEach((instance) => {
       if (instance) {
-        // instance.elements[0].setAttribute("split-ran", "true");
         if (instance.elements[0].hasAttribute("data-letters-delay")) {
           instance.chars.forEach((letter, index) => {
-            let delay = index / 150 + "s";
+            const delay = index / 150 + "s";
             letter.style.setProperty("transition-delay", delay);
           });
         }
@@ -111,18 +107,19 @@ function initSplit() {
     });
   }
 
-  splitText();
+  document.fonts.ready.then(() => {
+    splitText();
+  });
 
-  // Add a debounced resize event listener
   let resizeTimeout;
   window.addEventListener("resize", () => {
-    // Only run on non-mobile devices (width > 991px)
     if (window.innerWidth > 991) {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         splitText();
-        initTextScroll();
-        initLoad();
+        initRevealScroll();
+        initExpertise();
+        initLoader();
       }, 300);
     }
   });

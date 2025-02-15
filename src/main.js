@@ -14,20 +14,15 @@ gsap.defaults({
 
 gsap.config({ nullTargetWarn: false });
 
-let isMobile = window.innerWidth < 480;
-let isMobileLandscape = window.innerWidth < 768;
-let isTablet = window.innerWidth < 992;
-
 function initLenis() {
-  lenis = new Lenis();
-
-  lenis.on("scroll", ScrollTrigger.update);
-
-  gsap.ticker.add((time) => {
-    lenis.raf(time * 1000);
-  });
-
-  gsap.ticker.lagSmoothing(0);
+  (lenis = new Lenis({
+    lerp: 0.1,
+  })),
+    lenis.on("scroll", ScrollTrigger.update),
+    gsap.ticker.add((e) => {
+      lenis.raf(1e3 * e);
+    }),
+    gsap.ticker.lagSmoothing(0);
 
   function initScrollToAnchorLenis() {
     document.querySelectorAll("[data-anchor-target]").forEach((element) => {
@@ -82,8 +77,9 @@ function initBrusselsTime() {
 }
 
 function initSplit() {
-  let lineTargets = document.querySelectorAll('[data-split="lines"]');
-  let letterTargets = document.querySelectorAll('[data-split="letters"]');
+  // Initialize SplitType after the entire window has loaded
+  const lineTargets = document.querySelectorAll('[data-split="lines"]');
+  const letterTargets = document.querySelectorAll('[data-split="letters"]');
   let splitTextLines = null;
   let splitTextLetters = [];
 
@@ -96,41 +92,36 @@ function initSplit() {
     });
     splitTextLetters = [];
 
-    // Lines
+    // Split Lines
     splitTextLines = new SplitType(lineTargets, {
       types: "lines",
       lineClass: "single-line",
     });
 
-    // In your splitText() function:
     splitTextLines.lines.forEach((line) => {
-      let wrapper = document.createElement("div");
+      const wrapper = document.createElement("div");
       wrapper.classList.add("single-line-wrap");
 
-      let parent = line.closest('[data-split="lines"]'); // Find the original element
-      let computedStyles = window.getComputedStyle(parent);
+      const parent = line.closest('[data-split="lines"]');
+      const computedStyles = window.getComputedStyle(parent);
 
-      // Check if the original element has background-clip: text
       if (
         computedStyles.webkitBackgroundClip === "text" ||
         computedStyles.backgroundClip === "text"
       ) {
-        let bg = computedStyles.background;
-
-        // Apply styles only if needed
+        const bg = computedStyles.background;
         line.style.background = bg;
         line.style.backgroundClip = "text";
         line.style.webkitBackgroundClip = "text";
-        line.style.color = "transparent"; // Ensure text is clipped to bg
+        line.style.color = "transparent";
       }
 
       line.parentNode.insertBefore(wrapper, line);
       wrapper.appendChild(line);
     });
 
-    // Letters
+    // Split Letters
     splitTextLetters = Array.from(letterTargets).map((target) => {
-      // if (target.hasAttribute("split-ran")) return;
       return new SplitType(target, {
         types: "words,chars",
         charClass: "single-letter",
@@ -141,10 +132,9 @@ function initSplit() {
 
     splitTextLetters.forEach((instance) => {
       if (instance) {
-        // instance.elements[0].setAttribute("split-ran", "true");
         if (instance.elements[0].hasAttribute("data-letters-delay")) {
           instance.chars.forEach((letter, index) => {
-            let delay = index / 150 + "s";
+            const delay = index / 150 + "s";
             letter.style.setProperty("transition-delay", delay);
           });
         }
@@ -154,20 +144,84 @@ function initSplit() {
 
   splitText();
 
-  // Add a debounced resize event listener
   let resizeTimeout;
   window.addEventListener("resize", () => {
-    // Only run on non-mobile devices (width > 991px)
     if (window.innerWidth > 991) {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         splitText();
         initRevealScroll();
+        initRevealOpacity();
+        initFaq();
         initExpertise();
-        // initLoad();
+        initHeroLoad();
       }, 300);
     }
   });
+}
+
+function initLoader() {
+  let loader = document.querySelector(".loader");
+  let loaderLeft = loader.querySelector(".loader-inner.is--left");
+  let loaderRight = loader.querySelector(".loader-inner.is--right");
+  let bgImage = document.querySelector("[data-hero='img']");
+
+  let loaderTl = gsap.timeline({
+    defaults: {
+      ease: "simon-ease",
+      duration: 1,
+    },
+  });
+
+  loaderTl
+    .set(loader, { display: "flex" })
+    .set(loaderLeft, { y: "50%" })
+    .set(loaderRight, { y: "33%" })
+    .to(loaderLeft, { y: "0%" })
+    .to(loaderRight, { y: "0%" }, "<0.1")
+    .to(loaderLeft, { y: "-50%" }, ">")
+    .to(loaderRight, { y: "-33%" }, "<0.1")
+    .to(loaderRight, { y: "-67%" }, ">")
+    .to(loaderLeft, { y: "-100%" }, ">")
+    .to(loaderRight, { y: "-100%" }, "<0.1")
+    .to(
+      bgImage,
+      { filter: "blur(0px)", scale: 1, duration: 2.5, ease: "simon-ease" },
+      "<0.1"
+    );
+}
+
+function initHeroLoad() {
+  let hero = document.querySelector(".container.is--hero");
+  let nav = document.querySelector("[hero-nav]");
+  let navItems = nav.querySelectorAll("[data-nav-reveal]");
+  let heading = hero.querySelector(".hero-heading");
+  let headingLines = heading.querySelectorAll(".hero-h-line");
+  let subheading = hero.querySelector(".hero-subheading__text-wrapper");
+  let subheadingLines = subheading.querySelectorAll(".single-line");
+  let button = hero.querySelector("[data-hero-button]");
+  let eyebrow = hero.querySelector("[data-hero-eyebrow]");
+
+  let heroTl = gsap.timeline({
+    defaults: {
+      ease: "simon-ease",
+      duration: 1.2,
+    },
+    delay: 4,
+  });
+
+  heroTl
+    .set(hero, { display: "block" })
+    .fromTo(
+      headingLines,
+      { y: "120%" },
+      { y: 0, autoAlpha: 1, stagger: 0.075 },
+      "<0"
+    )
+    .to(subheadingLines, { y: 0, autoAlpha: 1, stagger: 0.075 }, "<0.5")
+    .from(button, { autoAlpha: 0 }, "<0.1")
+    .from(eyebrow, { autoAlpha: 0 }, "<")
+    .fromTo(navItems, { autoAlpha: 0 }, { autoAlpha: 1, stagger: 0.05 }, "<");
 }
 
 function initHeadings() {
@@ -211,116 +265,6 @@ function initHeadings() {
       );
   });
 }
-
-// function initLoad() {
-//   let header = document.querySelector(".header");
-//   let hero = document.querySelector("[data-hero-section]");
-//   let image = hero.querySelector("[hero-img]");
-//   let lines = hero.querySelectorAll(".single-line");
-//   let buttons = hero.querySelectorAll("[hero-button]");
-
-//   let mm = gsap.matchMedia();
-
-//   mm.add("(min-width: 768px)", () => {
-//     let tl = gsap.timeline({
-//       delay: 0.3,
-//       defaults: {
-//         ease: "vigore-ease",
-//         duration: 1.2,
-//       },
-//       onComplete: () => {
-//         ScrollTrigger.refresh();
-//       },
-//     });
-
-//     tl.set(hero, { autoAlpha: 1 })
-//       .set(
-//         image,
-//         { clipPath: "polygon(15% 100%, 40% 100%, 40% 100%, 15% 100%)" },
-//         "<"
-//       )
-//       .to(image, {
-//         clipPath: "polygon(15% 40%, 40% 40%, 40% 100%, 15% 100%)",
-//         duration: 0.8,
-//         ease: "expo.out",
-//       })
-//       .to(
-//         image,
-//         {
-//           clipPath: "polygon(15% 20%, 40% 20%, 40% 85%, 15% 85%)",
-//           duration: 0.8,
-//         },
-//         "<0.4"
-//       )
-//       .to(image, {
-//         clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-//         duration: 1,
-//       })
-//       .to(
-//         lines,
-//         {
-//           y: 0,
-//           stagger: staggerDefault,
-//         },
-//         "<0.1"
-//       )
-//       .from(header, { y: "-100%" }, "<")
-//       .from(
-//         buttons,
-//         { autoAlpha: 0, duration: 0.6, stagger: staggerDefault },
-//         "<0.5"
-//       );
-
-//     return () => tl.kill(); // cleanup if media query changes
-//   });
-
-//   // animations that run on all screen sizes
-
-//   mm.add("(max-width: 767px)", () => {
-//     let tlBase = gsap.timeline({
-//       delay: 0.3,
-//       defaults: {
-//         ease: "vigore-ease",
-//         duration: 1.2,
-//       },
-//       onComplete: () => {
-//         ScrollTrigger.refresh();
-//       },
-//     });
-
-//     tlBase
-//       .set(hero, { autoAlpha: 1 })
-//       .to(
-//         lines,
-//         {
-//           y: 0,
-//           stagger: staggerDefault,
-//         },
-//         "<0.1"
-//       )
-//       .from(header, { y: "-100%" }, "<")
-//       .from(
-//         buttons,
-//         { autoAlpha: 0, duration: 0.6, stagger: staggerDefault },
-//         "<0.5"
-//       );
-
-//     return () => tlBase.kill(); // cleanup if media query changes
-//   });
-
-//   gsap.to(hero, {
-//     y: "-8em",
-//     z: "-24em",
-//     rotateX: "10deg",
-//     ease: "none",
-//     scrollTrigger: {
-//       trigger: hero,
-//       start: "top top",
-//       end: "bottom top",
-//       scrub: true,
-//     },
-//   });
-// }
 
 function initMobileMenu() {
   let menu = document.querySelector(".nav-menu");
@@ -400,8 +344,12 @@ initMobileMenu();
 function initRevealScroll() {
   let targets = document.querySelectorAll('[data-reveal="scroll"]');
 
+  if (!targets.length) return; // Exit if no targets found
+
   targets.forEach((target) => {
     let lines = target.querySelectorAll(".single-line");
+    if (!lines.length) return; // Skip if no lines found in this target
+
     gsap.to(lines, {
       y: 0,
       duration: durationDefault + 0.2,
@@ -478,7 +426,7 @@ function initExpertise() {
       ease: "simon-ease",
       scrollTrigger: {
         trigger: heading,
-        start: "top 90%",
+        start: "top 80%",
         once: true,
       },
     });
@@ -1112,7 +1060,10 @@ function initFaq() {
 
 function initHero() {
   let hero = document.querySelector("[data-section='hero']");
+  if (!hero) return; // Safety check for hero section
+
   let heroImage = hero.querySelector("[data-hero='img']");
+  if (!heroImage) return; // Safety check for hero image
 
   gsap.to(heroImage, {
     translateY: "150",
@@ -1134,16 +1085,18 @@ document.addEventListener("DOMContentLoaded", () => {
   initLenis();
   initCurrentYear();
   initBrusselsTime();
+  initParallax();
   initSplit();
+  initLoader();
+  initHeroLoad();
+  initHero();
   initRevealScroll();
   initRevealOpacity();
-  initParallax();
   initHeadings();
   initExpertise();
   initBento();
   initWorks();
   initTimeline();
   initFaq();
-  initHero();
-  // initLoad();
+  ScrollTrigger.refresh();
 });
