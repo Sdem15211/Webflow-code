@@ -15,14 +15,12 @@ gsap.defaults({
 gsap.config({ nullTargetWarn: false });
 
 function initLenis() {
-  (lenis = new Lenis({
-    lerp: 0.1,
-  })),
-    lenis.on("scroll", ScrollTrigger.update),
-    gsap.ticker.add((e) => {
-      lenis.raf(1e3 * e);
-    }),
-    gsap.ticker.lagSmoothing(0);
+  lenis = new Lenis();
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add((time) => {
+    lenis.raf(time * 1000);
+  });
+  gsap.ticker.lagSmoothing(0);
 
   function initScrollToAnchorLenis() {
     document.querySelectorAll("[data-anchor-target]").forEach((element) => {
@@ -160,7 +158,57 @@ function initSplit() {
   });
 }
 
+function initLenisCheckScrollUpDown() {
+  // Only initialize scroll checking if Lenis is active
+  if (!lenis) return;
+
+  var lastScrollTop = 0;
+  var threshold = 50;
+  var thresholdTop = 50;
+
+  var scrollHandler = function (e) {
+    var nowScrollTop = e.targetScroll;
+
+    if (Math.abs(lastScrollTop - nowScrollTop) >= threshold) {
+      // Check Scroll Direction
+      if (nowScrollTop > lastScrollTop) {
+        document.body.setAttribute("data-scrolling-direction", "down");
+      } else {
+        document.body.setAttribute("data-scrolling-direction", "up");
+      }
+      lastScrollTop = nowScrollTop;
+
+      // Check if Scroll Started
+      if (nowScrollTop > thresholdTop) {
+        document.body.setAttribute("data-scrolling-started", "true");
+      } else {
+        document.body.setAttribute("data-scrolling-started", "false");
+      }
+    }
+  };
+
+  function startCheckScroll() {
+    lenis.on("scroll", scrollHandler);
+  }
+
+  startCheckScroll();
+}
+
 function initLoader() {
+  if (sessionStorage.getItem("visited")) {
+    let loader = document.querySelector(".loader");
+    if (loader) {
+      loader.style.display = "none";
+    }
+    let bgImage = document.querySelector("[data-hero='img']");
+    if (bgImage) {
+      gsap.set(bgImage, { filter: "blur(0px)", scale: 1 });
+    }
+    return;
+  }
+
+  sessionStorage.setItem("visited", "true");
+
   let loader = document.querySelector(".loader");
   let loaderLeft = loader.querySelector(".loader-inner.is--left");
   let loaderRight = loader.querySelector(".loader-inner.is--right");
@@ -174,6 +222,7 @@ function initLoader() {
   });
 
   loaderTl
+    .set(bgImage, { filter: "blur(15px)", scale: 1.2 })
     .set(loader, { display: "flex" })
     .set(loaderLeft, { y: "50%" })
     .set(loaderRight, { y: "33%" })
@@ -207,10 +256,11 @@ function initHeroLoad() {
       ease: "simon-ease",
       duration: 1.2,
     },
-    delay: 4,
+    delay: sessionStorage.getItem("visited") ? 0 : 4,
   });
 
   heroTl
+    .set(nav, { display: "block" })
     .set(hero, { display: "block" })
     .fromTo(
       headingLines,
@@ -508,9 +558,26 @@ function initExpertise() {
 
 function initBento() {
   let section = document.querySelector(".bento-grid");
-  // conversion
 
   requestAnimationFrame(() => {
+    // performance
+    let performanceImg = section.querySelector(".performance-card__visual");
+
+    gsap.fromTo(
+      performanceImg,
+      { translateX: 35 },
+      {
+        translateX: 0,
+        ease: "none",
+        scrollTrigger: {
+          trigger: performanceImg,
+          start: "top bottom",
+          end: "bottom top",
+          scrub: 0.3,
+        },
+      }
+    );
+    // conversion
     let conversionCard = section.querySelector(".grid-card.conversion");
     let bars = conversionCard.querySelectorAll(".bar");
 
@@ -525,7 +592,7 @@ function initBento() {
       stagger: 0.1,
       scrollTrigger: {
         trigger: conversionCard,
-        start: "top 90%",
+        start: "top 95%", // Adjusted start for mobile
         once: true,
       },
     });
@@ -547,7 +614,7 @@ function initBento() {
       ease: "power2.out",
       scrollTrigger: {
         trigger: conversionCard,
-        start: "top 80%",
+        start: "top 85%", // Adjusted start for mobile
         once: true,
       },
       onComplete: () => {
@@ -1087,8 +1154,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initBrusselsTime();
   initParallax();
   initSplit();
-  initLoader();
+  initLenisCheckScrollUpDown();
   initHeroLoad();
+  initLoader();
   initHero();
   initRevealScroll();
   initRevealOpacity();
